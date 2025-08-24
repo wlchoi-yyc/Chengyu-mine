@@ -291,7 +291,7 @@ let state = {
   teacherPassHash: null,
 };
 
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); showToast("✅ 已保存"); render(); }
+function save(){ hardSave(); showToast("✅ 已保存"); }
 function hardSave(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 function load(){ const s = localStorage.getItem(LS_KEY); if(s){ try{ state = JSON.parse(s); }catch(e){} } }
 
@@ -507,6 +507,7 @@ function renderShop(){
   document.getElementById('prevShop').disabled = (state.shopPage===0);
   document.getElementById('nextShop').disabled = (state.shopPage>=total-1);
 }
+
 function buyFromShop(it){
   if(state.tokens < it.price){ showToast('代幣不足'); return; }
   state.tokens -= it.price;
