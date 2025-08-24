@@ -67,6 +67,18 @@
   .right{margin-left:auto}
   .tag{border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:2px 8px;font-size:12px;color:var(--muted)}
   .danger{color:#fecaca}
+.btn{background:linear-gradient(180deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,.12);color:#fff;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;user-select:none;touch-action:manipulation;display:inline-flex;align-items:center;justify-content:center;min-height:44px;line-height:1.1}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.tight{min-height:36px;padding:8px 10px}
+  .collapse{margin-top:8px}
+  .collapse>summary{list-style:none;cursor:pointer;padding:10px 14px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(255,255,255,.04);font-weight:700}
+  .collapse>summary::-webkit-details-marker{display:none}
+  .chip{display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:start;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04)}
+  .chip .idiom{font-weight:800}
+  .chip .explain{color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .chip.expanded .explain{-webkit-line-clamp:unset;white-space:normal}
+  .idiomGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  @media(max-width:560px){.chip{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -136,6 +148,15 @@
         <h2>🛒 系統商店</h2>
         <div id="shop" class="shop"></div>
         <div class="row">
+          <button class="btn" id="prevShop">← 上一頁</button>
+          <button class="btn" id="nextShop">下一頁 →</button>
+          <span class="hint" id="shopPageInfo"></span>
+          <div class="spacer"></div>
+          <button class="btn" id="refreshShop">刷新商品</button>
+          <span class="hint">稀有字較貴；每日簽到可得額外代幣。</span>
+        </div>
+      </div>
+        <div class="row">
           <button class="btn" id="refreshShop">刷新商品</button>
           <span class="hint">稀有字較貴；每日簽到可得額外代幣。</span>
         </div>
@@ -152,19 +173,32 @@
   </section>  <!-- 成語庫 -->  <section class="section" id="sec-dict">
     <div class="card">
       <h2>📚 課內成語庫（部分示例，可自訂）</h2>
-      <div id="idiomList" class="grid"></div>
+      <div id="idiomList" class="idiomGrid"></div>
     </div>
   </section>  <!-- 教師/說明 -->  <section class="section" id="sec-help">
     <div class="cards">
       <div class="card span8">
         <h2>👩🏻‍🏫 教師設定（可選）</h2>
-        <p class="hint">在下方輸入自訂的四字成語（每行一條），再按「匯入成語清單」。
-        系統會自動從清單生成挖礦字庫與校對規則。</p>
-        <textarea id="customIdioms" rows="8" style="width:100%;background:#0b1222;color:#e5e7eb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px" placeholder="例：\n風雨同舟\n畫龍點睛\n刻舟求劍"></textarea>
-        <div class="row" style="margin-top:8px">
-          <button class="btn brand" id="importIdiomsBtn">匯入成語清單</button>
-          <span class="hint">（匯入後會覆蓋當前成語庫；建議先用「匯出存檔」備份）</span>
-        </div>
+        <details class="collapse" id="teacherPanel">
+          <summary id="teacherSummary">🔐 教師面板（按一下展開／收起）</summary>
+          <div style="margin-top:8px">
+            <div class="row">
+              <input id="teacherPassword" type="password" placeholder="教師密碼（首次設定或輸入解鎖）" style="flex:1;background:#0b1222;color:#e5e7eb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px"/>
+              <button class="btn brand" id="setOrUnlockBtn">設定/解鎖</button>
+              <button class="btn" id="lockBtn">上鎖</button>
+            </div>
+            <p class="hint">上鎖時：匯入成語、匯出/匯入存檔、重置等功能會被保護，需密碼解鎖。</p>
+            <div class="divider"></div>
+            <textarea id="customIdioms" rows="8" style="width:100%;background:#0b1222;color:#e5e7eb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px" placeholder="例：
+風雨同舟
+畫龍點睛
+刻舟求劍" disabled></textarea>
+            <div class="row" style="margin-top:8px">
+              <button class="btn brand" id="importIdiomsBtn" disabled>匯入成語清單</button>
+              <span class="hint">（匯入後會覆蓋當前成語庫；建議先用「匯出存檔」備份）</span>
+            </div>
+          </div>
+        </details>
       </div>
       <div class="card span4">
         <h2>ℹ️ 使用說明</h2>
@@ -248,8 +282,13 @@ let state = {
   idioms: DEFAULT_IDIOMS.slice(),
   explains: {...DEFAULT_EXPLAINS},
   lastSignin: null,
+  lastSigninTs: 0,
   streak: 0,
-  shop: [], // {char, price, rare}
+  shop: [], // 當前頁商品
+  shopCatalog: [], // 全目錄（分頁）
+  shopPage: 0,
+  teacherLocked: true,
+  teacherPassHash: null,
 };
 
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); showToast("✅ 已保存"); render(); }
@@ -295,10 +334,37 @@ function dig(){
 }
 
 // ====== 簽到 ======
-function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1).toString().padStart(2,'0')+"-"+d.getDate().toString().padStart(2,'0'); }
-function signIn(){
+function todayStr(){ const d=new Date(); const y=d.getFullYear(); const m=(d.getMonth()+1).toString().padStart(2,'0'); const day=d.getDate().toString().padStart(2,'0'); return `${y}-${m}-${day}`; }
+async function signIn(){
   const today=todayStr();
-  if(state.lastSignin===today){ showToast("📅 今日已簽到") ; return; }
+  if(state.lastSignin===today){ showToast("📅 今日已簽到"); return; }
+  const nowTs = Date.now();
+  // 判斷是否連續（以本機日期為準，避免同日重複）
+  let cont = false;
+  if(state.lastSignin){
+    const last = new Date(state.lastSignin);
+    const lastMid = new Date(last.getFullYear(), last.getMonth(), last.getDate()).getTime();
+    const nowMid = new Date().setHours(0,0,0,0);
+    const diffDays = Math.round((nowMid - lastMid)/86400000);
+    cont = (diffDays===1);
+  }
+  state.streak = cont ? (state.streak+1) : 1;
+  state.lastSignin = today;
+  state.lastSigninTs = nowTs;
+  let gain = 5; // 基本 5 代幣
+  if(state.streak%7===0){
+    state.inventory.push(newTile('？','wild'));
+    showToast(`🔥 連簽 ${state.streak} 天，獲得稀有『？』萬用字！+${gain} 代幣`);
+  }else if(state.streak%3===0){
+    state.inventory.push(newTile(randomFrom(CHAR_POOL)));
+    showToast(`👏 連簽 ${state.streak} 天，額外送隨機字塊！+${gain} 代幣`);
+  }else{
+    showToast(`✅ 已簽到 +${gain} 代幣`);
+  }
+  state.tokens += gain;
+  hardSave();
+  updateTop(); renderInventory();
+}
   // 判斷是否連續
   const last = state.lastSignin? new Date(state.lastSignin):null;
   const now = new Date();
@@ -403,29 +469,43 @@ function priceOfChar(ch, action='buy'){
   return action==='sell'? Math.max(1, Math.floor(base/2)) : base;
 }
 
-function genShop(){
+function seededRandom(seed){ let t = seed % 2147483647; if(t<=0) t+=2147483646; return ()=> (t = t*16807 % 2147483647) / 2147483647; }
+function genShopCatalog(){
   const freq = getCharFreqMap();
   const allChars = [...freq.keys()];
-  const items = [];
-  for(let i=0;i<6;i++){
-    const ch = randomFrom(allChars);
-    items.push({char: ch, price: priceOfChar(ch,'buy'), rare: rarityOfChar(ch)==='rare'});
-  }
-  // 小機率上架萬用字
-  if(Math.random()<0.2){ items[ Math.floor(Math.random()*items.length) ] = {char:'？', price: 18, rare:true}; }
-  state.shop = items;
+  // 每日固定種子，避免學生錯過找不回
+  const seedStr = state.lastSignin || todayStr();
+  const seed = parseInt(seedStr.replace(/-/g,''),10) || Date.now();
+  const rand = seededRandom(seed);
+  const pool = allChars.slice().sort(()=>rand()-0.5);
+  const catalog = [];
+  for(const ch of pool){ catalog.push({char:ch, price:priceOfChar(ch,'buy'), rare:rarityOfChar(ch)==='rare'}); }
+  // 混入少量萬用字
+  for(let i=0;i<Math.max(1,Math.floor(pool.length/20));i++){ const idx=Math.floor(rand()*catalog.length); catalog.splice(idx,0,{char:'？',price:18,rare:true}); }
+  state.shopCatalog = catalog;
+  state.shopPage = 0;
+  sliceShopPage();
 }
-
+function sliceShopPage(){
+  const per = 6;
+  const start = state.shopPage*per;
+  state.shop = state.shopCatalog.slice(start, start+per);
+}
 function renderShop(){
   const shop = document.getElementById('shop'); shop.innerHTML = '';
   for(const it of state.shop){
     const c = document.createElement('div'); c.className='shopItem';
     const t = document.createElement('div'); t.className='tile'+(it.char==='？'? ' wild':''); t.textContent=it.char; c.appendChild(t);
-    const p = document.createElement('div'); p.innerHTML = `價格：<span class="token">💰 ${it.price}</span>`; c.appendChild(p);
+    const p = document.createElement('div'); p.innerHTML = `價格：<span class=\"token\">💰 ${it.price}</span>`; c.appendChild(p);
     const r = document.createElement('div'); r.className='hint'; r.textContent = it.char==='？' ? '稀有：萬用字' : (it.rare? '稀有字':'常見字'); c.appendChild(r);
-    const b = document.createElement('button'); b.className='btn'; b.textContent='購買'; b.addEventListener('click', ()=>buyFromShop(it)); c.appendChild(b);
+    const b = document.createElement('button'); b.className='btn tight'; b.textContent='購買'; b.addEventListener('click', ()=>buyFromShop(it)); c.appendChild(b);
     shop.appendChild(c);
   }
+  const info = document.getElementById('shopPageInfo');
+  const total = Math.max(1, Math.ceil(state.shopCatalog.length/6));
+  info.textContent = `第 ${state.shopPage+1} / ${total} 頁`;
+  document.getElementById('prevShop').disabled = (state.shopPage===0);
+  document.getElementById('nextShop').disabled = (state.shopPage>=total-1);
 }
 function buyFromShop(it){
   if(state.tokens < it.price){ showToast('代幣不足'); return; }
@@ -460,14 +540,14 @@ function sellSelected(){
 // ====== 成語庫顯示 ======
 function renderIdiomList(){
   const wrap = document.getElementById('idiomList'); wrap.innerHTML='';
-  const ul = document.createElement('div');
-  ul.style.display='grid'; ul.style.gridTemplateColumns='repeat(auto-fill,minmax(180px,1fr))'; ul.style.gap='8px';
   for(const i of state.idioms){
-    const chip = document.createElement('div'); chip.className='pill'; chip.style.justifyContent='space-between'; chip.style.gap='6px';
-    const span = document.createElement('span'); span.textContent = i; chip.appendChild(span);
-    const hint = document.createElement('span'); hint.className='hint'; hint.textContent = state.explains[i]||''; chip.appendChild(hint);
-    ul.appendChild(chip);
+    const card = document.createElement('div'); card.className='chip';
+    const idi = document.createElement('div'); idi.className='idiom'; idi.textContent=i; card.appendChild(idi);
+    const exp = document.createElement('div'); exp.className='explain'; exp.textContent = state.explains[i]||''; exp.title = state.explains[i]||''; card.appendChild(exp);
+    card.addEventListener('click', ()=>{ card.classList.toggle('expanded'); });
+    wrap.appendChild(card);
   }
+}
   wrap.appendChild(ul);
 }
 
@@ -490,17 +570,27 @@ function updateTop(){
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(showToast._t); showToast._t=setTimeout(()=>{t.style.display='none'}, 1500); }
 
 // ====== 導入/導出/重置 ======
-function exportSave(){ const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='chengyu_mine_save.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1000); }
-function importSave(){
+function ensureTeacherUnlocked(){ if(state.teacherLocked){ showToast('🔒 請先解鎖教師面板'); return false; } return true; }
+function exportSave(){ if(!ensureTeacherUnlocked()) return; const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='chengyu_mine_save.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1000); }); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='chengyu_mine_save.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1000); }
+function importSave(){ if(!ensureTeacherUnlocked()) return;
   const inp = document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
   inp.onchange = (e)=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); state=obj; CHAR_POOL = charPoolFromIdioms(); hardSave(); boot(); showToast('✅ 匯入完成'); }catch(err){ showToast('❌ 匯入失敗：格式錯誤'); } }; r.readAsText(f); };
   inp.click();
+}catch(err){ showToast('❌ 匯入失敗：格式錯誤'); } }; r.readAsText(f); };
+  inp.click();
 }
-function resetAll(){ if(!confirm('確定重置？所有進度將刪除（不可復原）')) return; localStorage.removeItem(LS_KEY); location.reload(); }
+function resetAll(){ if(!ensureTeacherUnlocked()) return; if(!confirm('確定重置？所有進度將刪除（不可復原）')) return; localStorage.removeItem(LS_KEY); location.reload(); }
 
 // ====== 自訂成語清單 ======
-function importIdiomsFromText(){
+function importIdiomsFromText(){ if(!ensureTeacherUnlocked()) return;
   const tx = document.getElementById('customIdioms').value.trim(); if(!tx){ showToast('請輸入成語（每行一條）'); return; }
+  const arr = tx.split(/
++/).map(s=>s.trim()).filter(Boolean).filter(s=>s.length===4);
+  if(!arr.length){ showToast('未偵測到四字成語'); return; }
+  state.idioms = Array.from(new Set(arr));
+  CHAR_POOL = charPoolFromIdioms();
+  hardSave(); renderIdiomList(); genShopCatalog(); renderShop(); showToast('✅ 已匯入 '+state.idioms.length+' 條成語');
+}
   const arr = tx.split(/\n+/).map(s=>s.trim()).filter(Boolean).filter(s=>s.length===4);
   if(!arr.length){ showToast('未偵測到四字成語'); return; }
   state.idioms = Array.from(new Set(arr));
@@ -508,44 +598,68 @@ function importIdiomsFromText(){
   hardSave(); renderIdiomList(); showToast('✅ 已匯入 '+state.idioms.length+' 條成語');
 }
 
+// ====== 教師密碼相關 ======
+async function sha256(str){ const enc=new TextEncoder().encode(str); const buf=await crypto.subtle.digest('SHA-256',enc); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function setOrUnlockTeacher(){
+  const pwd = document.getElementById('teacherPassword').value;
+  if(!pwd){ showToast('請輸入密碼'); return; }
+  const hash = await sha256(pwd);
+  if(!state.teacherPassHash){ // 首次設定
+    state.teacherPassHash = hash; state.teacherLocked=false; showToast('🔓 已設定並解鎖教師面板');
+  }else{
+    if(hash===state.teacherPassHash){ state.teacherLocked=false; showToast('🔓 解鎖成功'); }
+    else { showToast('❌ 密碼錯誤'); return; }
+  }
+  hardSave(); updateTeacherLockUI();
+}
+function lockTeacher(){ state.teacherLocked=true; hardSave(); updateTeacherLockUI(); showToast('🔒 已上鎖'); }
+function updateTeacherLockUI(){
+  const disabled = state.teacherLocked;
+  document.getElementById('customIdioms').disabled = disabled;
+  document.getElementById('importIdiomsBtn').disabled = disabled;
+  document.getElementById('exportBtn').disabled = disabled;
+  document.getElementById('importBtn').disabled = disabled;
+  document.getElementById('resetBtn').disabled = disabled;
+  document.getElementById('teacherSummary').textContent = disabled? '🔐 教師面板（已上鎖）' : '🔓 教師面板（已解鎖）';
+}
+
 // ====== 啟動 ======
 function boot(){
   load();
-  // 防呆：確保狀態欄位存在
+  if(state.teacherPassHash==null){ state.teacherLocked=true; }
   if(!Array.isArray(state.inventory)) state.inventory=[];
   if(!Array.isArray(state.wall)) state.wall=[];
-  if(!Array.isArray(state.shop)) state.shop=[];
-  if(!Array.isArray(state.idioms) || state.idioms.length===0){
-    state.idioms = DEFAULT_IDIOMS.slice();
-    state.explains = {...DEFAULT_EXPLAINS};
-  }
+  if(!Array.isArray(state.shopCatalog)) state.shopCatalog=[];
+  if(!Array.isArray(state.idioms) || state.idioms.length===0){ state.idioms = DEFAULT_IDIOMS.slice(); state.explains = {...DEFAULT_EXPLAINS}; }
 
-  // 建立字庫
   CHAR_POOL = charPoolFromIdioms();
 
-  // 初始渲染
   renderSlots();
   renderInventory();
   renderWall();
   renderIdiomList();
-  genShop();
+  genShopCatalog();
   renderShop();
   updateTop();
+  updateTeacherLockUI();
 
   // 綁定事件
   document.getElementById('digBtn').addEventListener('click', dig);
   document.getElementById('signinBtn').addEventListener('click', signIn);
   document.getElementById('checkBtn').addEventListener('click', checkAndBuild);
   document.getElementById('clearSlots').addEventListener('click', ()=>{ slots=[null,null,null,null]; renderSlots(); });
-  document.getElementById('refreshShop').addEventListener('click', ()=>{ genShop(); renderShop(); hardSave(); });
+  document.getElementById('refreshShop').addEventListener('click', ()=>{ genShopCatalog(); renderShop(); hardSave(); });
+  document.getElementById('prevShop').addEventListener('click', ()=>{ if(state.shopPage>0){ state.shopPage--; sliceShopPage(); renderShop(); hardSave(); } });
+  document.getElementById('nextShop').addEventListener('click', ()=>{ const total=Math.ceil(state.shopCatalog.length/6); if(state.shopPage<total-1){ state.shopPage++; sliceShopPage(); renderShop(); hardSave(); } });
   document.getElementById('sellBtn').addEventListener('click', sellSelected);
   document.getElementById('saveBtn').addEventListener('click', save);
   document.getElementById('exportBtn').addEventListener('click', exportSave);
   document.getElementById('importBtn').addEventListener('click', importSave);
   document.getElementById('importIdiomsBtn').addEventListener('click', importIdiomsFromText);
   document.getElementById('resetBtn').addEventListener('click', resetAll);
+  document.getElementById('setOrUnlockBtn').addEventListener('click', setOrUnlockTeacher);
+  document.getElementById('lockBtn').addEventListener('click', lockTeacher);
 
-  // 分頁切換
   document.querySelectorAll('.tab').forEach(el=>{
     el.addEventListener('click', ()=>{
       document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -556,7 +670,6 @@ function boot(){
     });
   });
 
-  // 快速放置：點「最新挖出」→ 自動放到下一個空格
   const lastTileEl = document.getElementById('lastTile');
   lastTileEl.addEventListener('click', ()=>{
     if(!state.inventory.length) return;
