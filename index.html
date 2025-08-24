@@ -1,1 +1,572 @@
+<!DOCTYPE html><html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>成語礦場 · MVP</title>
+<style>
+  :root{
+    --bg:#0f172a; /* slate-900 */
+    --card:#111827; /* gray-900 */
+    --muted:#94a3b8; /* slate-400 */
+    --text:#e5e7eb; /* gray-200 */
+    --brand:#22c55e; /* green-500 */
+    --brand-2:#38bdf8; /* sky-400 */
+    --warn:#f59e0b; /* amber-500 */
+    --danger:#ef4444; /* red-500 */
+    --ok:#10b981; /* emerald-500 */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#0b1222,#0f172a 40%,#0b1222);color:var(--text);font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", Arial, sans-serif;}
+  .app{max-width:1100px;margin:0 auto;padding:16px;}
+  header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .title{font-weight:800;font-size:22px;letter-spacing:1px;}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.08)}
+  .btn{background:linear-gradient(180deg,#1e293b,#0f172a);border:1px solid rgba(255,255,255,.12);color:#fff;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;user-select:none;touch-action:manipulation}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.primary{background:linear-gradient(180deg,#16a34a,#15803d);border-color:#166534}
+  .btn.brand{background:linear-gradient(180deg,#38bdf8,#0284c7);border-color:#0369a1}
+  .btn.warn{background:linear-gradient(180deg,#f59e0b,#b45309);border-color:#92400e}
+  .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,.2)}
+  .spacer{flex:1}
+  .grid{display:grid;gap:12px}
+  .cards{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-top:12px}
+  .card{grid-column:span 12;background:linear-gradient(180deg,#0b1222,#0f172a);border:1px solid rgba(255,255,255,.08);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:14px}
+  @media (min-width:800px){
+    .card.span4{grid-column:span 4}
+    .card.span6{grid-column:span 6}
+    .card.span8{grid-column:span 8}
+  }
+  .card h2{margin:4px 0 10px;font-size:18px}
+  .stat{display:flex;align-items:center;gap:10px;font-weight:700}
+  .token{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35)}
+  .muted{color:var(--muted)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .tab{padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);cursor:pointer;background:rgba(255,255,255,.04)}
+  .tab.active{background:linear-gradient(180deg,#38bdf8,#0284c7);border-color:#0284c7}
+  .section{display:none}
+  .section.active{display:block}
+  .flex{display:flex;gap:12px;flex-wrap:wrap}
+  .inv{display:flex;flex-wrap:wrap;gap:8px;min-height:46px;padding:8px;border:1px dashed rgba(255,255,255,.18);border-radius:12px;background:rgba(255,255,255,.03)}
+  .tile{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#111827,#0b1222);border:1px solid rgba(255,255,255,.15);font-size:22px;font-weight:800;cursor:pointer;user-select:none}
+  .tile.sel{outline:2px solid var(--brand-2);}
+  .tile.wild{background:linear-gradient(180deg,#065f46,#064e3b);border-color:#047857}
+  .tile.ghost{opacity:.35}
+  .slots{display:flex;gap:8px;align-items:center}
+  .slot{width:52px;height:52px;border-radius:12px;border:2px dashed rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;background:rgba(255,255,255,.03)}
+  .slot.filled{border-style:solid;background:rgba(56,189,248,.08)}
+  .wall{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .brick{min-height:52px;border-radius:12px;padding:8px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#1f2937,#0f172a);border:1px solid rgba(255,255,255,.12);font-weight:800}
+  .shop{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  @media (max-width:640px){.shop{grid-template-columns:repeat(3,1fr)}}
+  .shopItem{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.12)}
+  .hint{font-size:12px;color:var(--muted)}
+  .kbd{display:inline-block;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);font-size:12px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:rgba(2,6,23,.9);color:#e2e8f0;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 20px rgba(0,0,0,.4);z-index:999}
+  .row{display:flex;align-items:center;gap:10px}
+  .divider{height:1px;background:rgba(255,255,255,.12);margin:10px 0}
+  .right{margin-left:auto}
+  .tag{border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:2px 8px;font-size:12px;color:var(--muted)}
+  .danger{color:#fecaca}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title">🏗️ 成語礦場 · MVP</div>
+    <span class="pill" id="tokenPill">💰 代幣 <b id="tokenCount">0</b></span>
+    <span class="pill" id="streakPill">🔥 連續簽到 <b id="streak">0</b> 天</span>
+    <button class="btn primary" id="signinBtn">簽到</button>
+    <button class="btn brand" id="saveBtn" title="將進度保存到瀏覽器（自動）">保存</button>
+    <button class="btn ghost" id="exportBtn">匯出存檔</button>
+    <button class="btn ghost" id="importBtn">匯入</button>
+    <div class="spacer"></div>
+    <button class="btn warn" id="resetBtn">重置</button>
+  </header>  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="mine">⛏️ 礦場</div>
+    <div class="tab" data-tab="build">🏗️ 工地</div>
+    <div class="tab" data-tab="market">🏪 市集</div>
+    <div class="tab" data-tab="dict">📚 成語庫</div>
+    <div class="tab" data-tab="help">❔ 教師/說明</div>
+  </div>  <!-- 礦場 -->  <section class="section active" id="sec-mine">
+    <div class="cards">
+      <div class="card span8">
+        <h2>⛏️ 挖掘字塊</h2>
+        <div class="row">
+          <button class="btn brand" id="digBtn">挖 礦（獲得 1 字塊 + 1~3 代幣）</button>
+          <span class="hint">每次挖礦都有機會獲得寶箱（額外代幣）。</span>
+        </div>
+        <div class="divider"></div>
+        <div class="stat">🧱 最新挖出：<span id="lastTile" class="tile ghost">？</span><span class="hint">點擊字塊可直接加入「工地」的空位</span></div>
+      </div>
+      <div class="card span4">
+        <h2>🎒 字塊背包（點選以放置到工地）</h2>
+        <div id="inventory" class="inv" aria-label="背包字塊"></div>
+        <div class="hint">提示：點一下選取，再點工地的空格放置；再次點選取可取消。</div>
+      </div>
+    </div>
+  </section>  <!-- 工地 -->  <section class="section" id="sec-build">
+    <div class="cards">
+      <div class="card span6">
+        <h2>🏗️ 成語拼砌台</h2>
+        <div class="row">
+          <div class="slots" id="slots"></div>
+          <button class="btn" id="clearSlots">清空</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="tag">方向</label>
+          <select id="orientation" class="btn">
+            <option value="h">橫向</option>
+            <option value="v">向上堆高</option>
+          </select>
+          <button class="btn primary" id="checkBtn">檢查並建樓</button>
+        </div>
+        <p class="hint">放入四個字組成成語；使用 <span class="kbd">？</span> 萬用字可代替任意一字（稀有）。</p>
+        <div class="divider"></div>
+        <div id="buildMsg" class="hint"></div>
+      </div>
+      <div class="card span6">
+        <h2>🏢 我的小樓（已建成的成語）</h2>
+        <div id="wall" class="wall" aria-live="polite"></div>
+        <p class="hint">每成功建成一條成語：+5 代幣；每完成一層（4條）可額外 +20 代幣。</p>
+      </div>
+    </div>
+  </section>  <!-- 市集 -->  <section class="section" id="sec-market">
+    <div class="cards">
+      <div class="card span8">
+        <h2>🛒 系統商店</h2>
+        <div id="shop" class="shop"></div>
+        <div class="row">
+          <button class="btn" id="refreshShop">刷新商品</button>
+          <span class="hint">稀有字較貴；每日簽到可得額外代幣。</span>
+        </div>
+      </div>
+      <div class="card span4">
+        <h2>💱 出售多餘字塊</h2>
+        <p class="hint">在背包中點選要出售的字塊，然後按「出售」。</p>
+        <div class="row">
+          <button class="btn warn" id="sellBtn" disabled>出售所選字塊</button>
+          <span id="sellInfo" class="hint"></span>
+        </div>
+      </div>
+    </div>
+  </section>  <!-- 成語庫 -->  <section class="section" id="sec-dict">
+    <div class="card">
+      <h2>📚 課內成語庫（部分示例，可自訂）</h2>
+      <div id="idiomList" class="grid"></div>
+    </div>
+  </section>  <!-- 教師/說明 -->  <section class="section" id="sec-help">
+    <div class="cards">
+      <div class="card span8">
+        <h2>👩🏻‍🏫 教師設定（可選）</h2>
+        <p class="hint">在下方輸入自訂的四字成語（每行一條），再按「匯入成語清單」。
+        系統會自動從清單生成挖礦字庫與校對規則。</p>
+        <textarea id="customIdioms" rows="8" style="width:100%;background:#0b1222;color:#e5e7eb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px" placeholder="例：\n風雨同舟\n畫龍點睛\n刻舟求劍"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn brand" id="importIdiomsBtn">匯入成語清單</button>
+          <span class="hint">（匯入後會覆蓋當前成語庫；建議先用「匯出存檔」備份）</span>
+        </div>
+      </div>
+      <div class="card span4">
+        <h2>ℹ️ 使用說明</h2>
+        <ul>
+          <li>每天按「簽到」領取代幣；連續簽到會有額外獎勵。</li>
+          <li>到「礦場」挖字塊，或到「市集」用代幣購買需要的字。</li>
+          <li>在「工地」放入四個字，組成成語即可建樓並獲得代幣。</li>
+          <li>背包字塊可點選→放入空位；再次點選可取消。</li>
+          <li>選中背包字塊後，在市集可按「出售」換取代幣。</li>
+          <li>所有資料保存在本機瀏覽器（localStorage），可用「匯出/匯入」搬家。</li>
+        </ul>
+        <p class="hint">本 MVP 採「離線單機」設計；多人聯機與同儕交易可日後擴展。</p>
+      </div>
+    </div>
+  </section>
+</div><div id="toast" class="toast" style="display:none"></div><script>
+// ====== 資料：預設成語（可被後續自訂覆蓋） ======
+const DEFAULT_IDIOMS = [
+  "風雨同舟","同舟共濟","畫蛇添足","畫龍點睛","刻舟求劍","亡羊補牢","守株待兔","對牛彈琴","盲人摸象","掩耳盜鈴",
+  "狐假虎威","班門弄斧","虎頭蛇尾","杯弓蛇影","滄海一粟","滄海桑田","九牛一毛","四面楚歌","愚公移山","精衛填海",
+  "囫圇吞棗","胸有成竹","指鹿為馬","三心兩意","雪中送炭","錦上添花","望梅止渴","畫地為牢","破釜沉舟","背水一戰",
+  "如魚得水","唇亡齒寒","自相矛盾","聞雞起舞","草木皆兵","守口如瓶","滾瓜爛熟","手不釋卷","博古通今","異曲同工",
+  "一箭雙雕","狼狽為奸","無地自容","名落孫山","嫉賢妒能","捨己為人","道聽塗說","風馬牛不相及","居安思危","安居樂業",
+  "安然無恙","積少成多","源遠流長","循序漸進","拾金不昧","得過且過","半途而廢","屢見不鮮","人山人海","迫不及待",
+  "志同道合","天馬行空","滔滔不絕","口若懸河","目瞪口呆","神機妙算","畫餅充飢","破鏡重圓","青出於藍","三顧茅廬",
+  "草船借箭","作賊心虛","十拿九穩","一鳴驚人","朝三暮四","無動於衷","推陳出新","頑石點頭","開門見山","指日可待",
+  "不可救藥","力不從心","理直氣壯","一清二楚","井井有條","心猿意馬","見義勇為","以身作則","春風化雨","默不作聲",
+  "苦口婆心","明知故犯","不可思議","無可奈何","循規蹈矩","隨機應變"
+];
 
+const DEFAULT_EXPLAINS = {
+  "風雨同舟":"在困難中同心協力，共度難關。",
+  "畫龍點睛":"在關鍵處加上一筆，使內容更傳神。",
+  "刻舟求劍":"拘泥成法，不知變通。",
+  "亡羊補牢":"出了差錯後想辦法補救，仍可避免損失擴大。",
+  "守株待兔":"不思進取，坐等僥倖。",
+  "對牛彈琴":"與對方不懂的人說深奧的話，白費唇舌。",
+  "盲人摸象":"以偏概全，認識片面。",
+  "掩耳盜鈴":"自欺欺人。",
+  "班門弄斧":"在行家面前賣弄本領。",
+  "虎頭蛇尾":"做事有始無終。",
+  "杯弓蛇影":"疑神疑鬼，驚慌失措。",
+  "滄海一粟":"在巨大的事物中極其微小。",
+  "愚公移山":"堅持不懈就能克服困難。",
+  "胸有成竹":"做事之前已有完整構思。",
+  "指鹿為馬":"顛倒是非。",
+  "雪中送炭":"在困難時給予及時幫助。",
+  "錦上添花":"使美好的事物更加美好。",
+  "望梅止渴":"用空想來安慰自己。",
+  "破釜沉舟":"下定決心，義無反顧。",
+  "背水一戰":"處於絕境時拼死一搏。",
+  "如魚得水":"找到適合自己的環境或夥伴。",
+  "唇亡齒寒":"關係密切，榮辱與共。",
+  "自相矛盾":"言行前後不一致。",
+  "聞雞起舞":"發奮努力不怠惰。",
+  "草木皆兵":"過度驚恐。",
+  "手不釋卷":"勤奮好學，常讀不輟。",
+  "一箭雙雕":"一舉兩得。",
+  "安居樂業":"生活安定，工作愉快。",
+  "積少成多":"量變引起質變，日積月累。",
+  "循序漸進":"按步就班地前進。",
+  "青出於藍":"後輩勝過前輩。",
+  "草船借箭":"善用時機與資源。",
+  "作賊心虛":"做了壞事而心虛。",
+  "十拿九穩":"把握極大。",
+  "開門見山":"說話直入主題。",
+  "不可救藥":"壞到無法挽救。",
+  "井井有條":"條理分明。",
+  "見義勇為":"見到正義的事勇於去做。",
+  "春風化雨":"良好的教育感化人心。",
+  "苦口婆心":"好言相勸，語重心長。",
+  "不可思議":"難以想像、超乎常理。"
+};
+
+// ====== 狀態管理 ======
+const LS_KEY = "chengyu_mine_mvp_v1";
+let state = {
+  tokens: 0,
+  inventory: [], // {id, char, type:'normal'|'wild'}
+  wall: [],      // 已建成的成語陣列
+  idioms: DEFAULT_IDIOMS.slice(),
+  explains: {...DEFAULT_EXPLAINS},
+  lastSignin: null,
+  streak: 0,
+  shop: [], // {char, price, rare}
+};
+
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); showToast("✅ 已保存"); render(); }
+function hardSave(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function load(){ const s = localStorage.getItem(LS_KEY); if(s){ try{ state = JSON.parse(s); }catch(e){} } }
+
+// ====== 工具：字頻與挖礦 ======
+function getCharFreqMap(){
+  const map = new Map();
+  for(const idiom of state.idioms){
+    if(idiom.length!==4) continue;
+    for(const ch of idiom){ map.set(ch, (map.get(ch)||0)+1); }
+  }
+  return map;
+}
+function charPoolFromIdioms(){
+  const freq = getCharFreqMap();
+  const pool = [];
+  // 依頻率加權（最多放到 6 次，避免過於集中）
+  for(const [ch, n] of freq){ const times = Math.min(6, Math.max(1, Math.round(n/1))); for(let i=0;i<times;i++) pool.push(ch); }
+  // 加入少量干擾字
+  const noise = "天地山川江海風雨雷電日月星辰花草木石金銀銅鐵貓狗鳥魚雲霧影光心意情思言語行動";
+  for(const ch of noise){ if(Math.random()<0.15) pool.push(ch); }
+  return pool.length? pool : ["成","語","學","習"];
+}
+let CHAR_POOL = charPoolFromIdioms();
+
+function randomFrom(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+function newTile(char, type='normal'){ return { id: "t"+Math.random().toString(36).slice(2), char, type } }
+
+function dig(){
+  const char = randomFrom(CHAR_POOL);
+  const tile = newTile(char);
+  state.inventory.push(tile);
+  let gain = 1 + Math.floor(Math.random()*3); // 1~3
+  // 小概率寶箱
+  if(Math.random()<0.08){ gain += 5; showToast("🎁 挖到寶箱！+"+gain+" 代幣") }
+  state.tokens += gain;
+  hardSave();
+  document.getElementById('lastTile').textContent = char;
+  renderInventory();
+  updateTop();
+}
+
+// ====== 簽到 ======
+function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1).toString().padStart(2,'0')+"-"+d.getDate().toString().padStart(2,'0'); }
+function signIn(){
+  const today=todayStr();
+  if(state.lastSignin===today){ showToast("📅 今日已簽到") ; return; }
+  // 判斷是否連續
+  const last = state.lastSignin? new Date(state.lastSignin):null;
+  const now = new Date();
+  let cont = false;
+  if(last){ const diffDays = Math.floor((now - new Date(last.getFullYear(), last.getMonth(), last.getDate()))/86400000); cont = (diffDays===1); }
+  state.streak = cont ? (state.streak+1) : 1;
+  state.lastSignin = today;
+  let gain = 5; // 基本 5 代幣
+  if(state.streak%7===0){ // 每 7 天送稀有萬用字
+    state.inventory.push(newTile('？','wild'));
+    showToast("🔥 連簽 "+state.streak+" 天，獲得稀有『？』萬用字！+"+gain+" 代幣");
+  }else if(state.streak%3===0){
+    // 送隨機字
+    state.inventory.push(newTile(randomFrom(CHAR_POOL)));
+    showToast("👏 連簽 "+state.streak+" 天，額外送隨機字塊！+"+gain+" 代幣");
+  }else{
+    showToast("✅ 已簽到 +"+gain+" 代幣");
+  }
+  state.tokens += gain;
+  hardSave();
+  updateTop(); renderInventory();
+}
+
+// ====== 工地：拼砌與建樓 ======
+const slotsEl = document.getElementById('slots');
+let slots = [null,null,null,null]; // 存 tile.id 或 null
+function renderSlots(){
+  slotsEl.innerHTML = '';
+  for(let i=0;i<4;i++){
+    const s = document.createElement('div');
+    s.className = 'slot'+(slots[i]?' filled':'');
+    s.dataset.index = i;
+    s.textContent = slotChar(i) || '';
+    s.addEventListener('click', ()=>{
+      if(selectedTileId){ placeSelectedToSlot(i); }
+      else if(slots[i]){ // 點擊已放入的字 → 取回背包
+        const tid = slots[i];
+        const t = state.inventory.find(x=>x.id===tid);
+        if(t){ slots[i]=null; renderSlots(); renderInventory(); }
+      }
+    });
+    slotsEl.appendChild(s);
+  }
+}
+function slotChar(i){ const tid=slots[i]; if(!tid) return ''; const t=state.inventory.find(x=>x.id===tid); return t? t.char : ''; }
+
+let selectedTileId = null; // 背包中被選中的 tile.id
+function selectTile(id){ if(selectedTileId===id) selectedTileId=null; else selectedTileId=id; renderInventory(); updateSellInfo(); }
+function placeSelectedToSlot(i){ if(!selectedTileId) return; if(slots[i]) return; slots[i]=selectedTileId; selectedTileId=null; renderSlots(); renderInventory(); updateSellInfo(); }
+
+function slotsToString(){ return slots.map((tid)=>{ const t = state.inventory.find(x=>x.id===tid); return t? t.char:''; }).join(''); }
+
+function matchIdiomWithWildcards(str){
+  // str 長度 4，可含『？』萬用字
+  const pattern = new RegExp('^'+Array.from(str).map(ch=> ch==='？'? '.': ch).join('')+'$');
+  const list = state.idioms.filter(i=>pattern.test(i));
+  return list[0] || null;
+}
+
+function consumeTilesAfterBuild(){
+  // 建樓後：消耗已用的 4 個字塊（萬用字也會消耗）
+  const usedIds = new Set(slots.filter(Boolean));
+  state.inventory = state.inventory.filter(t=>!usedIds.has(t.id));
+  slots = [null,null,null,null];
+}
+
+function checkAndBuild(){
+  const str = slotsToString();
+  if(str.length!==4 || /\s/.test(str)) { showToast('請放入四個字'); return; }
+  // 精確匹配 or 萬用匹配
+  let ok = state.idioms.includes(str);
+  let finalIdiom = str;
+  if(!ok && str.includes('？')){
+    const matched = matchIdiomWithWildcards(str);
+    if(matched){ ok=true; finalIdiom = matched; }
+  }
+  if(!ok){ showToast('❌ 這不是課內成語（或次序不對）'); return; }
+  // 成功：加入到牆
+  state.wall.push({text:finalIdiom, ori: document.getElementById('orientation').value});
+  state.tokens += 5;
+  // 每完成一層（4 個）額外 +20
+  if(state.wall.length % 4 === 0){ state.tokens += 20; showToast('🏢 完成一層！額外 +20 代幣'); }
+  // 消耗字塊
+  consumeTilesAfterBuild();
+  hardSave();
+  renderWall(); renderSlots(); renderInventory(); updateTop();
+  const explain = state.explains[finalIdiom] || '';
+  document.getElementById('buildMsg').innerHTML = `✅ <b>${finalIdiom}</b> 建成！${explain? '（'+explain+'）': ''}`;
+}
+
+function renderWall(){
+  const wall = document.getElementById('wall');
+  wall.innerHTML = '';
+  for(const b of state.wall){ const d = document.createElement('div'); d.className='brick'; d.textContent=b.text; wall.appendChild(d); }
+}
+
+// ====== 市集：系統商店與出售 ======
+function rarityOfChar(ch){ const f = getCharFreqMap(); const n=f.get(ch)||0; if(ch==='？') return 'rare'; return n<=1? 'rare' : (n<=3? 'uncommon':'common'); }
+function priceOfChar(ch, action='buy'){
+  const r = rarityOfChar(ch);
+  const base = r==='rare'? 10 : r==='uncommon'? 6 : 3;
+  return action==='sell'? Math.max(1, Math.floor(base/2)) : base;
+}
+
+function genShop(){
+  const freq = getCharFreqMap();
+  const allChars = [...freq.keys()];
+  const items = [];
+  for(let i=0;i<6;i++){
+    const ch = randomFrom(allChars);
+    items.push({char: ch, price: priceOfChar(ch,'buy'), rare: rarityOfChar(ch)==='rare'});
+  }
+  // 小機率上架萬用字
+  if(Math.random()<0.2){ items[ Math.floor(Math.random()*items.length) ] = {char:'？', price: 18, rare:true}; }
+  state.shop = items;
+}
+
+function renderShop(){
+  const shop = document.getElementById('shop'); shop.innerHTML = '';
+  for(const it of state.shop){
+    const c = document.createElement('div'); c.className='shopItem';
+    const t = document.createElement('div'); t.className='tile'+(it.char==='？'? ' wild':''); t.textContent=it.char; c.appendChild(t);
+    const p = document.createElement('div'); p.innerHTML = `價格：<span class="token">💰 ${it.price}</span>`; c.appendChild(p);
+    const r = document.createElement('div'); r.className='hint'; r.textContent = it.char==='？' ? '稀有：萬用字' : (it.rare? '稀有字':'常見字'); c.appendChild(r);
+    const b = document.createElement('button'); b.className='btn'; b.textContent='購買'; b.addEventListener('click', ()=>buyFromShop(it)); c.appendChild(b);
+    shop.appendChild(c);
+  }
+}
+function buyFromShop(it){
+  if(state.tokens < it.price){ showToast('代幣不足'); return; }
+  state.tokens -= it.price;
+  state.inventory.push(newTile(it.char, it.char==='？'?'wild':'normal'));
+  hardSave();
+  updateTop(); renderInventory(); showToast('🛒 成功購買：'+it.char);
+}
+
+function updateSellInfo(){
+  const info = document.getElementById('sellInfo');
+  const btn = document.getElementById('sellBtn');
+  if(!selectedTileId){ info.textContent=''; btn.disabled=true; return; }
+  const t = state.inventory.find(x=>x.id===selectedTileId);
+  if(!t){ info.textContent=''; btn.disabled=true; return; }
+  const price = priceOfChar(t.char,'sell');
+  info.textContent = `可賣出 ${t.char} 得 ${price} 代幣`;
+  btn.disabled=false;
+}
+function sellSelected(){
+  if(!selectedTileId) return;
+  const idx = state.inventory.findIndex(x=>x.id===selectedTileId);
+  if(idx===-1) return;
+  const t = state.inventory[idx];
+  const price = priceOfChar(t.char,'sell');
+  state.tokens += price;
+  state.inventory.splice(idx,1);
+  selectedTileId=null;
+  hardSave(); updateTop(); renderInventory(); updateSellInfo(); showToast('💱 已出售：'+t.char);
+}
+
+// ====== 成語庫顯示 ======
+function renderIdiomList(){
+  const wrap = document.getElementById('idiomList'); wrap.innerHTML='';
+  const ul = document.createElement('div');
+  ul.style.display='grid'; ul.style.gridTemplateColumns='repeat(auto-fill,minmax(180px,1fr))'; ul.style.gap='8px';
+  for(const i of state.idioms){
+    const chip = document.createElement('div'); chip.className='pill'; chip.style.justifyContent='space-between'; chip.style.gap='6px';
+    const span = document.createElement('span'); span.textContent = i; chip.appendChild(span);
+    const hint = document.createElement('span'); hint.className='hint'; hint.textContent = state.explains[i]||''; chip.appendChild(hint);
+    ul.appendChild(chip);
+  }
+  wrap.appendChild(ul);
+}
+
+// ====== 背包渲染 ======
+function renderInventory(){
+  const inv = document.getElementById('inventory'); inv.innerHTML='';
+  for(const t of state.inventory){
+    const d = document.createElement('div'); d.className='tile'+(t.type==='wild'? ' wild':''); d.textContent=t.char; d.dataset.id=t.id; if(selectedTileId===t.id) d.classList.add('sel');
+    d.addEventListener('click', ()=>selectTile(t.id));
+    inv.appendChild(d);
+  }
+}
+
+// ====== UI 輔助 ======
+function updateTop(){
+  document.getElementById('tokenCount').textContent = state.tokens;
+  document.getElementById('streak').textContent = state.streak || 0;
+  document.getElementById('signinBtn').disabled = (state.lastSignin===todayStr());
+}
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(showToast._t); showToast._t=setTimeout(()=>{t.style.display='none'}, 1500); }
+
+// ====== 導入/導出/重置 ======
+function exportSave(){ const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='chengyu_mine_save.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url), 1000); }
+function importSave(){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange = (e)=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const obj=JSON.parse(r.result); state=obj; CHAR_POOL = charPoolFromIdioms(); hardSave(); boot(); showToast('✅ 匯入完成'); }catch(err){ showToast('❌ 匯入失敗：格式錯誤'); } }; r.readAsText(f); };
+  inp.click();
+}
+function resetAll(){ if(!confirm('確定重置？所有進度將刪除（不可復原）')) return; localStorage.removeItem(LS_KEY); location.reload(); }
+
+// ====== 自訂成語清單 ======
+function importIdiomsFromText(){
+  const tx = document.getElementById('customIdioms').value.trim(); if(!tx){ showToast('請輸入成語（每行一條）'); return; }
+  const arr = tx.split(/\n+/).map(s=>s.trim()).filter(Boolean).filter(s=>s.length===4);
+  if(!arr.length){ showToast('未偵測到四字成語'); return; }
+  state.idioms = Array.from(new Set(arr));
+  CHAR_POOL = charPoolFromIdioms();
+  hardSave(); renderIdiomList(); showToast('✅ 已匯入 '+state.idioms.length+' 條成語');
+}
+
+// ====== 啟動 ======
+function boot(){
+  load();
+  // 防呆：確保狀態欄位存在
+  if(!Array.isArray(state.inventory)) state.inventory=[];
+  if(!Array.isArray(state.wall)) state.wall=[];
+  if(!Array.isArray(state.shop)) state.shop=[];
+  if(!Array.isArray(state.idioms) || state.idioms.length===0){
+    state.idioms = DEFAULT_IDIOMS.slice();
+    state.explains = {...DEFAULT_EXPLAINS};
+  }
+
+  // 建立字庫
+  CHAR_POOL = charPoolFromIdioms();
+
+  // 初始渲染
+  renderSlots();
+  renderInventory();
+  renderWall();
+  renderIdiomList();
+  genShop();
+  renderShop();
+  updateTop();
+
+  // 綁定事件
+  document.getElementById('digBtn').addEventListener('click', dig);
+  document.getElementById('signinBtn').addEventListener('click', signIn);
+  document.getElementById('checkBtn').addEventListener('click', checkAndBuild);
+  document.getElementById('clearSlots').addEventListener('click', ()=>{ slots=[null,null,null,null]; renderSlots(); });
+  document.getElementById('refreshShop').addEventListener('click', ()=>{ genShop(); renderShop(); hardSave(); });
+  document.getElementById('sellBtn').addEventListener('click', sellSelected);
+  document.getElementById('saveBtn').addEventListener('click', save);
+  document.getElementById('exportBtn').addEventListener('click', exportSave);
+  document.getElementById('importBtn').addEventListener('click', importSave);
+  document.getElementById('importIdiomsBtn').addEventListener('click', importIdiomsFromText);
+  document.getElementById('resetBtn').addEventListener('click', resetAll);
+
+  // 分頁切換
+  document.querySelectorAll('.tab').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+      const name = el.dataset.tab;
+      document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+      document.getElementById('sec-'+name).classList.add('active');
+    });
+  });
+
+  // 快速放置：點「最新挖出」→ 自動放到下一個空格
+  const lastTileEl = document.getElementById('lastTile');
+  lastTileEl.addEventListener('click', ()=>{
+    if(!state.inventory.length) return;
+    const last = state.inventory[state.inventory.length-1];
+    selectedTileId = last.id;
+    const idx = slots.findIndex(x=>!x);
+    if(idx>=0){ placeSelectedToSlot(idx); }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script></body>
+</html>
